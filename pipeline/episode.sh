@@ -151,7 +151,7 @@ do_voice() {
 do_design() {
   local ep="$1"
   [ -f "$ep/episode.yaml" ] || die "先 init"
-  [ -d "$ep/run" ] || die "先 scenes（设计契约在工作区就绪后注入）"
+  mkdir -p "$ep/run"   # 设计契约可在拆镜前注入；拆镜后重跑则再分发到各镜头
   bash "$PIPELINE/inject-design.sh" "$ep" || die "Phase 3 失败（原因见上方输出）"
   say "Phase 3 完成: frame.md + caption 契约已注入各镜头"
 }

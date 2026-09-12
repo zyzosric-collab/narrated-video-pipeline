@@ -123,3 +123,25 @@ ffmpeg -i final.mp4 -i narration.mp3 -i bgm.mp3 -i sfx.mp3 -filter_complex "
 2. **BGM 默认音量基线**：30%（你之前用过的值）还是更低 25%？
 3. **预设是否锁定为频道级**：之后每部片默认 blue-professional，换需明确说明？
 4. **实施顺序**：先升级 runner 全部 9 个 Phase 再重制 Episode1（推荐，一步到位）？
+
+---
+
+## 实现修正（2026-09-13，P3–P7 全链验证时发现）
+
+用桩替掉 Codex/Claude 的智能环节、真跑执行器后，发现 build-audio.sh 与设计稿不一致，三处已修：
+
+| # | 问题 | 症状 | 修正 |
+|---|---|---|---|
+| 1 | 过滤器图有未被消费的输出 `[bgmduck2]` | ffmpeg 报 unconnected output → 整条主命令失败 → **静默**走 `\|\|` 回退，切点 SFX 永远不生效（`2>/dev/null` 把错误吞了） | 删掉多余的 `[2:a][1:a]` pass；改正侧链方向为「第一个输入=被压缩信号」`[2:a][1:a]sidechaincompress`（BGM 被压，narration 当 key）；回退改为打印 WARN |
+| 2 | `amix` 未关 normalize（默认 true） | 输入从 2 个变 3 个时整体被重新归一化，**加不加 SFX 会让整轨差 ~7 dB** | 两处都加 `:normalize=0`，电平只由 weights 决定 |
+| 3 | `-shortest` + `duration=first` | 配音比画面短时，`-shortest` 按音频截短，**画面尾部被剪掉** | 改 `duration=longest` + `-t "$VID_DUR"`，音频以成片时长为准，画面零截断 |
+
+顺带：`pipeline/episode.sh` 的 `design` 原先要求 `run/` 已存在（即必须先拆镜），与文档里的 init→voice→design→scenes 顺序矛盾；改为自建 `run/`，任意时点可跑。
+
+验证数据（`/tmp/e2e_full_p3p7.sh`，桩渲染 2 镜头 + 合成 BGM/SFX）：
+
+- 侧链增益衰减：BGM 受 duck `-44.5 LUFS` vs 未 duck `-35.7 LUFS` → **8.8 dB**
+- 切点 SFX：2.40–2.55s 窗口 `-31.3 dB` vs 无 SFX 对照 `-43.1 dB` → **+11.8 dB**（whoosh 确实落在切点）
+- 画面零重编码：`run/final.mp4` 与成片的视频流 md5 一致
+- 时长对齐：`final.mp4` 4.033s = 成片 4.033s（配音 4.296s，不再截画面）
+- 混音后整体响度 −19.7 LUFS（normalize=0 前为 −26.6）；如需对齐平台 −14 LUFS 需另加 `loudnorm`，属发布规格决策，尚未加入

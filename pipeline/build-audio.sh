@@ -47,37 +47,38 @@ FADE_START="$("$PY" -c "print(max(0, float('$VID_DUR') - 2.0))")"
 ffmpeg -y -v error -stream_loop -1 -i "$BGM" -t "$VID_DUR" \
   -af "volume=${BGV},afade=t=out:st=${FADE_START}:d=2" "$EP/assets/bgm-prepared.wav"
 
-# SFX 拼接层（镜头切点）：从 concat.txt 取各镜头时长，逐切点插一个 whoosh
-FILTER=""
-INPUTS=(-i "$EP/run/final.mp4" -i "$EP/narration.mp3" -i "$EP/assets/bgm-prepared.wav")
-NIN=3
+# SFX 层（镜头切点）：从 concat.txt 取各镜头时长，在第一个切点插一条 whoosh
+SFX_INPUTS=()
+SFX_CHAIN=""
+MIXIN=""
 if [ -d "$SFX_DIR" ] && ls "$SFX_DIR"/*.mp3 >/dev/null 2>&1; then
   SFX="$(ls "$SFX_DIR"/*.mp3 | head -1)"
-  INPUTS+=(-i "$SFX")
-  SFXIDX=3
+  SFX_INPUTS=(-i "$SFX")
   # 切点 = 各镜头累计时长（不含最后），用独立 python 文件避免 heredoc 编码问题
   CUTS="$($PY "$PIPELINE/cut-points.py" "$EP")"
-  FILTER=""
   # v2.0: 单条 whoosh 延迟到第一个镜头切点（多切点 v2.1 迭代）
   FIRST_CUT="${CUTS%% *}"
   MS="$($PY -c "print(int(float('$FIRST_CUT')*1000))")"
-  FILTER="[${SFXIDX}:a]volume=0.5,adelay=${MS}|${MS}[sfxout];"
+  SFX_CHAIN="[3:a]volume=0.5,adelay=${MS}|${MS}[sfxout];"
   MIXIN="[sfxout]"
-else
-  MIXIN=""
 fi
 
 # 主混音：narration 100% + bgm sidechain-duck + sfx
-# 注意：final.mp4 无音轨，所以混音只发生在音频输入之间（narration=输入1, bgm=输入2, sfx=输入3）
-# ffmpeg 全局 stream 索引：1:narration 2:bgm 3:sfx；视频用 0:v
+# sidechaincompress 的第一个输入是「被压缩的信号」，第二个是 key（旁链）：
+#   [2:a][1:a] = 压缩 BGM，用 narration 当 key → 说话时 BGM 自动降下来
+# amix 用 duration=longest：bgm-prepared 恰好等于成片时长，narration 偏短时由 BGM 补足，
+#   最后以 -t "$VID_DUR" 精确对齐；不用 -shortest（配音比画面短时会把画面截掉）。
+DUCK="[2:a][1:a]sidechaincompress=threshold=0.03:ratio=6:attack=120:release=600[bgmduck]"
 if [ -n "$MIXIN" ]; then
-  ffmpeg -y -v error "${INPUTS[@]}" -filter_complex "[1:a][2:a]sidechaincompress=threshold=0.03:ratio=6:attack=120:release=600[bgmduck];[2:a][1:a]sidechaincompress=threshold=0.03:ratio=6:attack=120:release=600[bgmduck2];${FILTER}[bgmduck][1:a][3:a]amix=inputs=3:weights=1.0 0.35 0.5:duration=first,alimiter=limit=0.95[aout]" \
-    -map 0:v -map "[aout]" -c:v copy -c:a aac -b:a 160k -shortest "$EP/final-with-voice.mp4" 2>/dev/null || \
-  ffmpeg -y -v error -i "$EP/run/final.mp4" -i "$EP/narration.mp3" -i "$EP/assets/bgm-prepared.wav" -filter_complex "[1:a][2:a]sidechaincompress=threshold=0.03:ratio=6:attack=120:release=600[bgmduck];[1:a][bgmduck]amix=inputs=2:weights=1.0 0.5:duration=first,alimiter=limit=0.95[aout]" \
-    -map 0:v -map "[aout]" -c:v copy -c:a aac -b:a 160k -shortest "$EP/final-with-voice.mp4"
-else
-  ffmpeg -y -v error -i "$EP/run/final.mp4" -i "$EP/narration.mp3" -i "$EP/assets/bgm-prepared.wav" -filter_complex "[1:a][2:a]sidechaincompress=threshold=0.03:ratio=6:attack=120:release=600[bgmduck];[1:a][bgmduck]amix=inputs=2:weights=1.0 0.5:duration=first,alimiter=limit=0.95[aout]" \
-    -map 0:v -map "[aout]" -c:v copy -c:a aac -b:a 160k -shortest "$EP/final-with-voice.mp4"
+  ffmpeg -y -v error -i "$EP/run/final.mp4" -i "$EP/narration.mp3" -i "$EP/assets/bgm-prepared.wav" "${SFX_INPUTS[@]}" \
+    -filter_complex "${DUCK};${SFX_CHAIN}[1:a][bgmduck][sfxout]amix=inputs=3:weights=1.0 0.5 0.5:normalize=0:duration=longest,alimiter=limit=0.95[aout]" \
+    -map 0:v -map "[aout]" -c:v copy -c:a aac -b:a 160k -t "$VID_DUR" "$EP/final-with-voice.mp4" \
+    || { echo "WARN: 带 SFX 的混音失败，回退到无 SFX 混音" >&2; MIXIN=""; }
+fi
+if [ -z "$MIXIN" ]; then
+  ffmpeg -y -v error -i "$EP/run/final.mp4" -i "$EP/narration.mp3" -i "$EP/assets/bgm-prepared.wav" \
+    -filter_complex "${DUCK};[1:a][bgmduck]amix=inputs=2:weights=1.0 0.5:normalize=0:duration=longest,alimiter=limit=0.95[aout]" \
+    -map 0:v -map "[aout]" -c:v copy -c:a aac -b:a 160k -t "$VID_DUR" "$EP/final-with-voice.mp4"
 fi
 
 echo "=== 交付验收 ==="
