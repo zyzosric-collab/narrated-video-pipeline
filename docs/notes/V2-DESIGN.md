@@ -117,12 +117,12 @@ ffmpeg -i final.mp4 -i narration.mp3 -i bgm.mp3 -i sfx.mp3 -filter_complex "
 
 ---
 
-## 待确认项
+## 待确认项（现状，2026-09-13 复核）
 
-1. **默认尺寸**：episode.yaml 的默认值定 16:9（Episode1 重制用），还是 9:16？
-2. **BGM 默认音量基线**：30%（你之前用过的值）还是更低 25%？
-3. **预设是否锁定为频道级**：之后每部片默认 blue-professional，换需明确说明？
-4. **实施顺序**：先升级 runner 全部 9 个 Phase 再重制 Episode1（推荐，一步到位）？
+1. **默认尺寸** → 16:9 已定（9:16 需在 episode.yaml 显式指定）
+2. **BGM 默认音量基线** → 25%（实现默认：`bgm-prepared` 归一峰值后 `volume=0.25`）
+3. **预设是否锁定为频道级** → 不锁定；每集开工时问，默认 blue-professional
+4. **实施顺序** → v3 runner 已升级落地；Episode1 重制版已被用户废弃删除，不再重制
 
 ---
 
@@ -158,3 +158,11 @@ ffmpeg -i final.mp4 -i narration.mp3 -i bgm.mp3 -i sfx.mp3 -filter_complex "
 | 输出 | 单声道 aac | `-ar 48000 -ac 2` 立体声 |
 
 回归数据（同一桩场景）：**−16.8 LUFS**（v2 目标 −16）、aac/48000/**stereo**、时长 5.033s = `run/final.mp4` 5.033s、视频流 md5 一致、切点窗口 −24.9 dB vs 静默 −inf、BGM 旁链后 −42.0 vs 原始 −35.3 LUFS（−6.7 dB）；**有/无 SFX 素材两种情况下整轨都是 −16.8 LUFS**（修复前差约 7 dB）。
+
+---
+
+## 决策记录（2026-09-13，用户拍板）
+
+1. **切点 SFX 音量不调高**：保持 v2 低增益（`volume=0.16` × amix 权重 `0.35`，实测成片切点窗口 −45.1 dB RMS）——有意不与口播争抢。要让音效更明显时只调 `build-audio.sh` 里的 SFX 音量常量，不要动 `normalize=0` 与权重。
+2. **`NARRATION_HEAD_PAD_MS` 保持默认 0**：不垫头、不动时间轴（垫头会整体后移配音，必须与镜头规划一致才成立）。
+3. **Episode 4 / Episode 5 不再重混**：若其成片当初由 `mix-final-v2.sh` 混制，切点音效本来就在；不必回炉。
