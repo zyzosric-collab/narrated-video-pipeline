@@ -95,12 +95,14 @@ python3 "$TTS_CLI" --text <text> --speaker <voice> --speech-rate <int> \
 
 ## Credits & third-party components
 
+**Special thanks**: the visual layer of this pipeline is built directly on the author's earlier public project [**Auto-Motion**](https://github.com/zyzosric-collab/auto-motion) — the per-shot HTML animation workflow, the skill-pack layout and the 13 visual presets all come from it — with [**HyperFrames**](https://github.com/heygen-com/hyperframes) as the render engine behind it. Thank you both.
+
 Nothing third-party is **bundled here**. Every external component is used via runtime `npx`, a separate clone, or an official API contract — no upstream source is copied into this repo.
 
 | Component | Role | Source | License | How it is used |
 |---|---|---|---|---|
+| **Auto-Motion** | Render-workspace template + bundled HyperFrames skill pack (where the 13 visual presets live) | [zyzosric-collab/auto-motion](https://github.com/zyzosric-collab/auto-motion) (the author's public project); upstream origin [vibe-motion/auto-motion](https://github.com/vibe-motion/auto-motion) | upstream declares no license; used as a publicly available external reference | cloned separately to `~/auto-motion`; no files from it live here |
 | **HyperFrames** | P5 render engine (HTML → MP4) | [heygen-com/hyperframes](https://github.com/heygen-com/hyperframes) (npm `hyperframes`) | Apache-2.0 | invoked as `npx hyperframes`; no code copied |
-| **Auto-Motion** | Render-workspace template + bundled HyperFrames skill pack (where the 13 visual presets live) | [vibe-motion/auto-motion](https://github.com/vibe-motion/auto-motion); the clone URL in the docs points at its fork [zyzosric-collab/auto-motion](https://github.com/zyzosric-collab/auto-motion) | **upstream declares no license** (no LICENSE file) | cloned separately to `~/auto-motion`; no files from it live here |
 | **FFmpeg / ffprobe** | mixing, frame extraction, duration & loudness checks | [ffmpeg.org](https://ffmpeg.org) | LGPL-2.1+ / GPL (Homebrew build is `--enable-gpl`, x264/x265) | separate processes, not linked or redistributed |
 | **jq** | JSON processing | [jqlang.github.io/jq](https://jqlang.github.io/jq) | MIT | installed by the user |
 | **Node.js / npm** | running HyperFrames and `npm run check` | [nodejs.org](https://nodejs.org) | MIT | installed by the user |
@@ -110,6 +112,6 @@ Nothing third-party is **bundled here**. Every external component is used via ru
 | **Doubao speech synthesis 2.0 (`seed-tts-2.0`)** | P2 narration + word timestamps | Volcengine | commercial service terms | HTTP API only; the client in `tools/volcengine-doubao-tts/` is original code (stdlib only, no SDK) |
 | **Google Fonts** (Noto Sans SC / Space Grotesk, etc.) | on-screen type | [fonts.google.com](https://fonts.google.com) | SIL OFL 1.1 | loaded at render time; no font binaries in the repo |
 
-This repo's own code and docs (`SKILL.md`, `references/`, `pipeline/`) are original and MIT-licensed; the components above are governed solely by their own terms. If you redistribute **videos produced by** this pipeline, apply the table above — note in particular that **upstream Auto-Motion declares no license**, so its redistributable scope depends on the upstream repo and your local law; ask upstream before commercial use.
+This repo's own code and docs (`SKILL.md`, `references/`, `pipeline/`, `tools/`) are original and MIT-licensed; the components above are governed solely by their own terms. When you redistribute **videos produced by** this pipeline, asset licences (BGM / SFX / voice) are your responsibility; for Auto-Motion this repo only ships install pointers and bundles none of its files — check the upstream repo if your use is licence-sensitive.
 
 No API credentials, model weights or third-party assets are bundled — the Doubao TTS client under `tools/` is stdlib-only source, the speech service is Volcengine's, and Codex / Claude Code are external dependencies under their own terms. Keep `.env.local` on your machine (it is gitignored). MIT licensed.
