@@ -1,0 +1,14 @@
+{
+  "endpoint": "https://openspeech.bytedance.com/api/v3/tts/unidirectional/sse",
+  "resource_id": "seed-tts-2.0",
+  "speaker": "zh_male_dayi_uranus_bigtts",
+  "format": "mp3",
+  "sample_rate": 24000,
+  "bit_rate": 160000,
+  "speech_rate": 20,
+  "loudness_rate": 0,
+  "pitch": 0,
+  "style_preset": "tech_explainer",
+  "filter_markdown": true,
+  "timeout_seconds": 90
+}

@@ -7,8 +7,8 @@
  └─ P1 script/*.md ────────────────┐        （人工确认门）
                                    ▼
               P2 build_narration_v2.py ──► narration.mp3
-                     │                        ├─ word-timing.json（词级）
-                     │                        └─ subtitles.srt（外挂，不入画面）
+                     │                        ├─ voice-timing.json（句级+词级）
+                     │                        └─ transcription.srt（外挂，不入画面）
                      ▼
               P3 inject-design.sh ──► run/exampleFolder/**/frame.md（设计契约）
                      ▼
@@ -35,10 +35,14 @@
 <epDir>/
 ├── episode.yaml            # 配置真源（P0 生成，之后是唯一权威）
 ├── script/                 # P1 口播稿分段
+├── narration.mp3           # P2 成片配音
+├── voice-timing.json       # P2 句级+词级时间戳
+├── transcription.srt       # P2 外挂字幕（不入画面）
+├── audio/
+│   ├── segment-*.mp3       # 分段配音
+│   ├── segment-*.words.json
+│   └── concat.txt          # 拼接清单
 ├── assets/
-│   ├── narration.mp3       # P2
-│   ├── word-timing.json    # P2 词级时间戳
-│   ├── subtitles.srt       # P2 外挂字幕
 │   ├── bgm/                # 选定的 BGM（先试听后落盘）
 │   └── sfx/                # 镜头切点音效（可选）
 ├── run/

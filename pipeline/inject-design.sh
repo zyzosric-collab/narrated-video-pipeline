@@ -4,9 +4,27 @@
 # run root + every scene dir (design-spec.md official mechanism).
 set -uo pipefail
 PIPELINE="${PIPELINE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
-PY="${PIPELINE_PY:-$PIPELINE/.venv/bin/python}"
+# 解释器：$PIPELINE_PY > <pipeline>/.venv/bin/python > 系统 python3（需 PyYAML）
+if [ -n "${PIPELINE_PY:-}" ]; then
+  PY="$PIPELINE_PY"
+elif [ -x "$PIPELINE/.venv/bin/python" ]; then
+  PY="$PIPELINE/.venv/bin/python"
+elif command -v python3 >/dev/null 2>&1 && python3 -c 'import yaml' >/dev/null 2>&1; then
+  PY="python3"
+else
+  echo "FATAL: 找不到可用 Python 解释器（需要 PyYAML）。先执行: cd \"$PIPELINE\" && python3 -m venv .venv && .venv/bin/pip install pyyaml" >&2
+  exit 1
+fi
+[ -x "$PY" ] || [ "$PY" = "python3" ] || { echo "FATAL: 解释器不可执行: ${PY}（检查 PIPELINE_PY，或删掉它用默认值）" >&2; exit 1; }
 AUTO_MOTION="${AUTO_MOTION_DIR:-$HOME/auto-motion}"
-TTS_CLI="${TTS_CLI:-$HOME/Documents/Codex/shared/volcengine-doubao-tts/tts.py}"
+# TTS CLI 解析顺序：$TTS_CLI > 仓库内 tools/volcengine-doubao-tts/tts.py > 本机旧路径
+if [ -z "${TTS_CLI:-}" ]; then
+  if [ -f "$PIPELINE/../tools/volcengine-doubao-tts/tts.py" ]; then
+    TTS_CLI="$(cd "$PIPELINE/../tools/volcengine-doubao-tts" && pwd)/tts.py"
+  else
+    TTS_CLI="$HOME/Documents/Codex/shared/volcengine-doubao-tts/tts.py"
+  fi
+fi
 EP="$1"
 
 [ -f "$EP/episode.yaml" ] || { echo "FATAL: run init first" >&2; exit 1; }

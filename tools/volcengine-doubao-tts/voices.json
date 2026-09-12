@@ -1,0 +1,27 @@
+{
+  "favorites": [
+    {
+      "name": "大壹 2.0",
+      "speaker": "zh_male_dayi_uranus_bigtts",
+      "source": "user_favorite",
+      "status": "api_verified",
+      "role": "selected_default",
+      "notes": "用户已明确选择为后续默认音色；同一短句、speech_rate=20 时比云舟 2.0 更紧凑。"
+    }
+  ],
+  "comparison_candidates": [
+    {
+      "name": "大壹 2.0",
+      "speaker": "zh_male_dayi_uranus_bigtts",
+      "status": "api_verified"
+    },
+    {
+      "name": "云舟 2.0",
+      "speaker": "zh_male_m191_uranus_bigtts",
+      "status": "api_verified"
+    }
+  ],
+  "selection_status": "user_confirmed_default",
+  "selected_default": "zh_male_dayi_uranus_bigtts",
+  "rule": "后续默认使用大壹 2.0；用户针对具体视频另行指定音色时，以当次要求为准。"
+}

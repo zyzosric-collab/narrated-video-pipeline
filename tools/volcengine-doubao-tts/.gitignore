@@ -1,0 +1,5 @@
+.env.local
+outputs/
+__pycache__/
+*.pyc
+

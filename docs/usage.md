@@ -41,16 +41,16 @@ bash ~/nvp/pipeline/episode.sh status <epDir>
 bash ~/nvp/pipeline/episode.sh voice <epDir>
 ```
 
-内部走 `build_narration_v2.py`：按段调用外部 TTS CLI → 拼接 `narration.mp3` → 汇总词级 JSON → 生成外挂
-`subtitles.srt`。单集 13 段左右的规模约数分钟。
+内部走 `build_narration_v2.py`：按段调用豆包 TTS（仓库自带 `tools/volcengine-doubao-tts/`）→ 拼接 `narration.mp3` → 汇总词级 JSON → 生成外挂
+`transcription.srt`。单集 13 段左右的规模约数分钟。
 
 跳过 TTS、直接接入成品配音（例：外部生成的 `CPA.mp3`）：
 
 - 把成品放到 `<epDir>/assets/narration.mp3`；
-- 用 whisper.cpp 之类的词级对齐补出 `word-timing.json`，再跑 `make-scene-context.py` / `make-scene-timing.py`；
+- 用 whisper.cpp 之类的词级对齐补出 `voice-timing.json`，再跑 `make-scene-context.py` / `make-scene-timing.py`；
 - 细节见 `references/external-narration-bridge.md`。
 
-**画面不烧录字幕**——`subtitles.srt` 只用于外挂交付。
+**画面不烧录字幕**——`transcription.srt` 只用于外挂交付。
 
 ---
 

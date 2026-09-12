@@ -1,22 +1,24 @@
 # 排障
 
-按症状查表；每条都给出「原因 → 处置」。原则：**先看真实产物，再改配置。**
+按症状查表；每条都给出「原因 → 处置」。原则：**先看真实产物，再改配置**（`episode.sh doctor` 能一次列出缺什么）。
 
 ## 安装与环境
 
 | 症状 | 原因 | 处置 |
 |---|---|---|
-| `$PIPELINE/.venv/bin/python: No such file or directory` | 虚拟环境没建，或建在了别处 | `cd ~/nvp/pipeline && python3 -m venv .venv && .venv/bin/pip install pyyaml`；或用 `PIPELINE_PY` 指向已有解释器 |
-| `ep-env.py` 报 YAML 解析错误 | `.venv` 里缺 PyYAML | `.venv/bin/pip install pyyaml` |
-| 脚本找不到 `~/auto-motion/exampleFolder` | 渲染工作区没克隆或路径不同 | 克隆工作区，或 `export AUTO_MOTION_DIR=/path/to/auto-motion` |
+| `找不到可用 Python 解释器` / `解释器不可执行` | 没有 `.venv`，系统 `python3` 也没装 PyYAML；或 `PIPELINE_PY` 指错 | `cd <repo>/pipeline && python3 -m venv .venv && .venv/bin/pip install pyyaml`；或 `export PIPELINE_PY=/path/to/python` |
+| `ep-env.py` 报 YAML 解析错误 | 解释器里缺 PyYAML | `.venv/bin/pip install pyyaml`（脚本会先做这个判断，缺了会直接报错而不是继续跑） |
+| 脚本找不到 `auto-motion/exampleFolder` | 渲染工作区没克隆或路径不同 | `git clone https://github.com/zyzosric-collab/auto-motion ~/auto-motion`，或 `export AUTO_MOTION_DIR=/path/to/auto-motion` |
 | `bash: .venv/bin/python: ...` | 老脚本用相对路径找解释器（`legacy/`） | 用 `pipeline/` 下的当前脚本；legacy 仅作历史记录 |
+| 想一次看清环境 | — | `bash pipeline/episode.sh doctor`：逐项检查依赖 / 解释器 / TTS / 密钥 / 渲染工作区，并给出补齐命令 |
 
 ## 配音（P2）
 
 | 症状 | 原因 | 处置 |
 |---|---|---|
-| `TTS_CLI` 不存在 / 报参数错误 | 外部 TTS 脚本未安装或接口不符 | 按 `docs/install.md` 第 4 节的契约实现或指定 `TTS_CLI` |
-| 时间戳只有段落级、逐镜头同步漂移 | TTS 没输出**词级**时间戳 | 换用支持 `--subtitle-json` 词级的实现，或走 `external-narration-bridge.md` 的 whisper.cpp 对齐 |
+| `找不到 TTS CLI` / 路径不存在 | 既没设 `TTS_CLI`，仓库内 `tools/` 也不在 | 用仓库自带实现（默认），或 `export TTS_CLI=/path/to/your_tts.py` |
+| `缺少 VOLCENGINE_TTS_API_KEY` | 没配密钥 | `cd tools/volcengine-doubao-tts && cp .env.example .env.local`，填 Key（见目录内 README） |
+| 时间戳只有段落级、逐镜头同步漂移 | TTS 没输出**词级**时间戳 | 用支持 `--subtitle-json` 的实现（仓库自带豆包即支持），或走 `external-narration-bridge.md` 的 whisper.cpp 对齐 |
 | 试听时音色不对 | 用了平台内置 TTS 凑数 | 试听/预览必须用流水线官方 TTS 通道，音色取自 `episode.yaml: speaker` |
 | 稿子改了但配音没变 | 增量逻辑复用了旧分段 | 删掉对应段落的 mp3 再跑；或整体重跑 `voice` |
 

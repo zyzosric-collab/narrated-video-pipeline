@@ -15,7 +15,7 @@ The repo has two parts:
 |---|---|---|---|
 | P0 | init | `episode.yaml` (aspect / fps / preset / BGM level) | `episode.sh init` |
 | P1 | Script | `script/*.md` (human-approved **before** TTS) | human + writing skills |
-| P2 | Narration | `narration.mp3`, word-level JSON, `subtitles.srt` | `build_narration_v2.py` → external TTS CLI |
+| P2 | Narration | `narration.mp3`, word-level JSON, `transcription.srt` | `build_narration_v2.py` → Doubao TTS (bundled) |
 | P3 | Design contract | `frame.md` injected into the shot workspace | `inject-design.sh` |
 | P4 | Shot planning | one `run-claude-ai.sh` + `PROMPT.md` per shot | Codex (**planning only, no rendering**) |
 | P5 | Per-shot render | `scenes/scene-XXX/scene-XXX.mp4` | Claude Code + HyperFrames (concurrency 3) |
@@ -28,23 +28,43 @@ Division of labour: **Codex plans, Claude Code implements one shot at a time, th
 ## Quick start
 
 ```bash
-git clone <this-repo> ~/nvp
+# 1) clone + venv (PyYAML only)
+git clone https://github.com/zyzosric-collab/narrated-video-pipeline ~/nvp
 cd ~/nvp/pipeline && python3 -m venv .venv && .venv/bin/pip install pyyaml
 
+# 2) point the bundled Doubao TTS at your own API key
+cd ~/nvp/tools/volcengine-doubao-tts
+cp .env.example .env.local && chmod 600 .env.local && $EDITOR .env.local  # VOLCENGINE_TTS_API_KEY
+python3 tts.py --text 'config check.' --dry-run                          # no metered call
+
+# 3) preflight everything at once
+bash ~/nvp/pipeline/episode.sh doctor
+
+# 4) create an episode (Phase 0)
 bash ~/nvp/pipeline/episode.sh init ~/episodes/ep01 16:9 blue-professional
-bash ~/nvp/pipeline/episode.sh voice ~/episodes/ep01     # after the script is approved
+bash ~/nvp/pipeline/episode.sh status ~/episodes/ep01
+
+# 5) script → human approval → narration (Phase 1-2)
+bash ~/nvp/pipeline/episode.sh voice ~/episodes/ep01
+
+# 6) design contract → shot plan → one-shot pilot → full batch (Phase 3-6)
 bash ~/nvp/pipeline/episode.sh design ~/episodes/ep01
-bash ~/nvp/pipeline/episode.sh scenes ~/episodes/ep01 plan    # plan shots only
-bash ~/nvp/pipeline/episode.sh scenes ~/episodes/ep01 pilot   # render scene-001 only
-bash ~/nvp/pipeline/episode.sh scenes ~/episodes/ep01 rest    # rest + QC + concat
+bash ~/nvp/pipeline/episode.sh scenes ~/episodes/ep01 plan     # shot planning only
+bash ~/nvp/pipeline/episode.sh scenes ~/episodes/ep01 pilot    # render scene-001 only
+bash ~/nvp/pipeline/episode.sh scenes ~/episodes/ep01 rest     # rest + QC + concat
+bash ~/nvp/pipeline/episode.sh scenes ~/episodes/ep01 all      # full (finished shots skipped)
+
+# 7) audio layer (Phase 7)
 bash ~/nvp/pipeline/episode.sh audio ~/episodes/ep01 /path/to/bgm.mp3
 ```
 
-The executor resolves its own location via `BASH_SOURCE`, so it can be invoked from any working directory.
+The executor resolves its own location via `BASH_SOURCE`, so it can be invoked from any working directory; `doctor` reports every missing dependency together with the fix.
 
 ## Requirements
 
-`ffmpeg`/`ffprobe`, `jq`, Node.js + `npx hyperframes`, Python 3.11+ with PyYAML, Codex CLI (planning), Claude Code CLI (rendering), and an **external TTS CLI** (not bundled) matching:
+`ffmpeg`/`ffprobe`, `jq`, Node.js + `npx hyperframes`, Python 3.11+ with PyYAML, Codex CLI (planning, your own account/quota), Claude Code CLI (rendering, your own account/quota), the `auto-motion` render workspace (`github.com/zyzosric-collab/auto-motion`, cloned to `~/auto-motion`) — and **Doubao TTS, bundled here** at `tools/volcengine-doubao-tts/`, which needs nothing but your own `VOLCENGINE_TTS_API_KEY`.
+
+Resolution order is `$TTS_CLI` → bundled `tools/volcengine-doubao-tts/tts.py` → legacy local path, so a fresh clone works with zero TTS configuration. Any implementation matching this contract can replace it:
 
 ```bash
 python3 "$TTS_CLI" --text <text> --speaker <voice> --speech-rate <int> \
@@ -73,4 +93,4 @@ python3 "$TTS_CLI" --text <text> --speaker <voice> --speech-rate <int> \
 
 [`docs/install.md`](docs/install.md) · [`docs/architecture.md`](docs/architecture.md) · [`docs/usage.md`](docs/usage.md) · [`docs/troubleshooting.md`](docs/troubleshooting.md)
 
-No third-party voice service, model weights or API credentials are bundled — TTS, Codex and Claude Code are external dependencies under their own terms. MIT licensed.
+No API credentials, model weights or third-party assets are bundled — the Doubao TTS client under `tools/` is stdlib-only source, the speech service is Volcengine's, and Codex / Claude Code are external dependencies under their own terms. Keep `.env.local` on your machine (it is gitignored). MIT licensed.

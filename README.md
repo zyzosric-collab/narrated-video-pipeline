@@ -17,7 +17,7 @@
 |---|---|---|---|
 | P0 | init | `episode.yaml`（画幅 / fps / 预设 / BGM 音量） | `episode.sh init` |
 | P1 | 写稿 | `script/*.md` 分段口播稿（**人工确认后才能进入 P2**） | 人 + 写作类技能 |
-| P2 | 配音 | `narration.mp3`、词级时间戳 JSON、`subtitles.srt` | `build_narration_v2.py` → 外部 TTS CLI |
+| P2 | 配音 | `narration.mp3`、词级时间戳 JSON、`transcription.srt` | `build_narration_v2.py` → 豆包 TTS（仓库内） |
 | P3 | 设计契约 | 工作区内的 `frame.md`（配色 / 版式 / 组件规则） | `inject-design.sh` |
 | P4 | 拆镜 | 每镜头一份 `run-claude-ai.sh` + `PROMPT.md` | Codex（**只规划，不渲染**） |
 | P5 | 逐镜头渲染 | `scenes/scene-XXX/scene-XXX.mp4` | Claude Code + HyperFrames（并发 3） |
@@ -51,6 +51,8 @@
 │   ├── setup-shared-deps.py      # 共享依赖软链（auto-motion 工作区）
 │   ├── legacy/                   # 已退役的 v2 执行器，仅作历史记录
 │   └── ...
+├── tools/                        # 外部服务客户端（本仓库自带）
+│   └── volcengine-doubao-tts/    # 豆包 seed-tts-2.0 配音实现（P2 默认走这里）
 └── docs/                         # 人类可读文档（安装 / 使用 / 架构 / 排障）
     └── notes/                    # 早期设计记录与性能审计
 ```
@@ -71,28 +73,36 @@
 
 ```bash
 # 1) 取代码 + 建虚拟环境（只依赖 PyYAML）
-git clone <this-repo> ~/nvp
+git clone https://github.com/zyzosric-collab/narrated-video-pipeline ~/nvp
 cd ~/nvp/pipeline && python3 -m venv .venv && .venv/bin/pip install pyyaml
 
-# 2) 建一集（Phase 0）
+# 2) 配好自己的配音 API Key（豆包 / 火山引擎，就三步）
+cd ~/nvp/tools/volcengine-doubao-tts
+cp .env.example .env.local && chmod 600 .env.local && $EDITOR .env.local   # 填 VOLCENGINE_TTS_API_KEY
+python3 tts.py --text '配置检查。' --dry-run                              # 不调用付费接口
+
+# 3) 环境自检（依赖、解释器、TTS、渲染工作区一次过）
+bash ~/nvp/pipeline/episode.sh doctor
+
+# 4) 建一集（Phase 0）
 bash ~/nvp/pipeline/episode.sh init ~/episodes/ep01 16:9 blue-professional
 bash ~/nvp/pipeline/episode.sh status ~/episodes/ep01
 
-# 3) 写稿 → 人确认 → 配音（Phase 1-2）
+# 5) 写稿 → 人确认 → 配音（Phase 1-2）
 bash ~/nvp/pipeline/episode.sh voice ~/episodes/ep01
 
-# 4) 设计契约 → 拆镜 → 试点一镜 → 全量渲染（Phase 3-6）
+# 6) 设计契约 → 拆镜 → 试点一镜 → 全量渲染（Phase 3-6）
 bash ~/nvp/pipeline/episode.sh design ~/episodes/ep01
 bash ~/nvp/pipeline/episode.sh scenes ~/episodes/ep01 plan     # 只拆镜
 bash ~/nvp/pipeline/episode.sh scenes ~/episodes/ep01 pilot    # 只渲 scene-001
 bash ~/nvp/pipeline/episode.sh scenes ~/episodes/ep01 rest     # 其余镜头 + 质检 + 拼接
 bash ~/nvp/pipeline/episode.sh scenes ~/episodes/ep01 all      # 全量（已渲的会跳过）
 
-# 5) 音频层（Phase 7）
+# 7) 音频层（Phase 7）
 bash ~/nvp/pipeline/episode.sh audio ~/episodes/ep01 /path/to/bgm.mp3
 ```
 
-执行器按 `BASH_SOURCE` 解析自身路径，**可以从任意工作目录调用**（`init` / `status` 已实测跨目录运行）。
+执行器按 `BASH_SOURCE` 解析自身路径，**可以从任意工作目录调用**；`doctor` 会把缺什么、怎么补逐条列出来。
 
 完整的环境准备见 [`docs/install.md`](docs/install.md)，逐阶段 runbook 见 [`docs/usage.md`](docs/usage.md)。
 
@@ -106,19 +116,20 @@ bash ~/nvp/pipeline/episode.sh audio ~/episodes/ep01 /path/to/bgm.mp3
 | `jq` | 脚本内 JSON 处理 | |
 | Node.js + `npx hyperframes` | 镜头渲染引擎 | 随 `auto-motion` 工作区提供 |
 | Python 3.11+ / PyYAML | 执行器与配置解析 | 建在 `pipeline/.venv` |
-| Codex CLI | P4 拆镜（只规划） | 建议在隔离目录内运行 |
-| Claude Code CLI | P5 逐镜头实现 | |
-| **外部 TTS CLI** | P2 配音 | **不在本仓库内**，见下 |
+| Codex CLI | P4 拆镜（只规划） | 自备账号与额度；建议在隔离目录内运行 |
+| Claude Code CLI | P5 逐镜头实现 | 自备账号与额度 |
+| **豆包 TTS（配音）** | P2 配音 | **已随仓库提供**：`tools/volcengine-doubao-tts/`；只需自备火山引擎 API Key |
+| `auto-motion` 工作区 | 渲染引擎 + 13 套预设 + 技能 | 另仓：`github.com/zyzosric-collab/auto-motion`，克隆到 `~/auto-motion` |
 
-外部 TTS CLI 的调用契约（`build_narration_v2.py` 通过 `TTS_CLI` 环境变量指向它）：
+配音默认走仓库内的豆包实现（火山引擎 `seed-tts-2.0`，音色取 `episode.yaml: speaker`），只要求一个环境变量 `VOLCENGINE_TTS_API_KEY`。解析顺序是 `$TTS_CLI` → 仓库内 `tools/volcengine-doubao-tts/tts.py` → 本机旧路径；**什么都不设也能用**。
+
+要换成别的实现，写一个满足下面契约的脚本并把 `TTS_CLI` 指过去即可（也可以完全跳过 P2，用现成配音走
+[`references/external-narration-bridge.md`](references/external-narration-bridge.md) 的词级对齐流程）：
 
 ```bash
 python3 "$TTS_CLI" --text <文本> --speaker <音色ID> --speech-rate <整数> \
   --style <风格> --instruction <发音提示> --output <mp3> --subtitle-json <词级JSON>
 ```
-
-任何满足该接口的脚本都能替换默认实现；也可以完全跳过 P2，用现成配音走
-[`references/external-narration-bridge.md`](references/external-narration-bridge.md) 的词级对齐流程。
 
 ---
 
@@ -144,7 +155,7 @@ python3 "$TTS_CLI" --text <文本> --speaker <音色ID> --speech-rate <整数> \
 
 ## 边界与免责
 
-- 本仓库**不含**任何第三方音色服务、模型权重或 API 凭据；TTS、Codex、Claude Code 均为外部依赖，各自遵守其服务条款。
+- 本仓库**不含**任何 API 凭据、模型权重或第三方素材；豆包 TTS 客户端源码在 `tools/`（纯标准库），服务本身由火山引擎提供，Codex / Claude Code 为外部依赖，各自遵守其服务条款。`.env.local` 必须留在本机（已在 `.gitignore` 内）。
 - `docs/notes/` 与 `pipeline/legacy/` 是历史记录，不对应当前接口，请勿直接调用。
 - 音色与素材授权由使用者自行负责（素材来源 / 作者 / 许可证 / 路径 / 校验值的记录规范见 `references/audio-asset-routing.md`）。
 

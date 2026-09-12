@@ -16,7 +16,15 @@ import sys
 from pathlib import Path
 
 PIPELINE = Path(__file__).resolve().parent  # pipeline root = this script's dir
-TTS_CLI = Path(os.environ.get("TTS_CLI", str(Path.home() / "Documents/Codex/shared/volcengine-doubao-tts/tts.py")))
+def _default_tts_cli() -> str:
+    """TTS CLI 解析顺序：$TTS_CLI > 仓库内 tools/volcengine-doubao-tts/tts.py > 本机旧路径。"""
+    vendored = PIPELINE.parent / "tools" / "volcengine-doubao-tts" / "tts.py"
+    if vendored.exists():
+        return str(vendored)
+    return str(Path.home() / "Documents/Codex/shared/volcengine-doubao-tts/tts.py")
+
+
+TTS_CLI = Path(os.environ.get("TTS_CLI") or _default_tts_cli())
 
 REPLACEMENTS = [("AI", "A I"), ("HTML", "H T M L")]
 
