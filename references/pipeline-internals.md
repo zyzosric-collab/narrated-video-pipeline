@@ -9,7 +9,7 @@ Machine-specific detail for `narrated-video-pipeline`. Paths are on the user's M
 1. **发音指令加一句**（TTS 首次生成或重生成时必须带）：`开头第一个词咬字清晰、饱满有力，不要抢拍、不要吞字；句首适当留出呼吸感再开口。`
 2. **重生成后必须重建下游**：段时长会变 → 重新 concat narration.mp3 → 用各段 words.json 重算全局 voice-timing.json（段间偏移累加）→ 同步到 run/。实测首字能量 -15.7→-8.5dB，全片时长 +0.53s。
 
-原文件备份为 .bak；混音时成片开头垫 0.4s 静音（build-audio 内做），双保险。
+原文件备份为 .bak。**开头留白**：早期配方在混音里垫过 0.4s 头静音，那会整体后移配音、必须与镜头规划对齐才成立，因此现在是显式开关 `NARRATION_HEAD_PAD_MS`（默认 0，即不动时间轴）。
 
 ## File map
 
@@ -79,11 +79,12 @@ $PIPELINE_DIR/（默认 `~/video-pipeline`）
 - Codex 0.151.0-alpha: `codex exec --dangerously-bypass-approvals-and-sandbox --skip-git-repo-check --json --output-last-message <file> - < PROMPT.md`. The old `--sandbox danger-full-access --ask-for-approval never` flags no longer exist. Shell execution goes through the code-mode-host binary (symlink `~/.local/bin/codex-code-mode-host -> /Applications/ChatGPT.app/Contents/Resources/codex-code-mode-host` — if missing, exec is fully broken; restore with `ln -sf`). MCP 401 noise at startup is harmless.
 - Claude Code auth route is VOLATILE (observed in one week: opencode.ai/zen -> local cliproxy 127.0.0.1:8317 -> tokenrhythm; default model follows whatever the user last set). NEVER hardcode a model; scene scripts must not pass `--model`. Pre-flight per batch: read `~/.claude/settings.json` (read-only) + one `claude -p --output-format text "Reply exactly SMOKE"` smoke run in /tmp. `[claude-code:unrecognized_model]` stderr is benign; `API Error: 400 unknown provider` = report and wait for the user. Historical data points (stale-prone): glm-5.3-flash via opencode gateway 500'd/hung; qwen3.8-flash and deepseek-v4-pro worked there once; glm-5.3-flash[1M] via cliproxy smoked OK later.
 - Doubao TTS wrapper: now bundled in this repo at `tools/volcengine-doubao-tts/tts.py` (the executor resolves it automatically after `$TTS_CLI`; the legacy `~/Documents/Codex/shared/volcengine-doubao-tts/tts.py` path is only a last-resort fallback). Key in `.env.local` as VOLCENGINE_TTS_API_KEY. Approved baseline: speaker `zh_male_dayi_uranus_bigtts` (大壹2.0), `--speech-rate 10` (~1.1x; config default 20 must be overridden). Word timestamps: `--subtitle-json <out>` returns `sentences[].words[]` with `word/startTime/endTime/confidence`. Pronunciation instruction: forbid digit-by-digit slow-down and exaggerated emphasis (user rejected that in an earlier episode); build_narration_v2.py PRONUNCIATION_INSTRUCTION now also carries the 句首咬字 line + clear standard English for model/tech names, natural CJK↔EN switching, decimals read as Chinese numbers (Episode3 script is dense with "Anthropic / Fable 5.1"). TTS-reading replacements like `AI->A I`, `HTML->H T M L` apply to the spoken text only, never the SRT display text.
-- ffmpeg mix recipe (final.mp4 has NO audio stream; audio inputs are narration/bgm/sfx):
-  1. Prepare BGM: `ffmpeg -stream_loop -1 -i bgm.mp3 -t <vid_dur> -af "volume=0.25,afade=t=out:st=<dur-2>:d=2" bgm-prepared.wav`
-  2. Duck: `[1:a][2:a]sidechaincompress=threshold=0.03:ratio=6:attack=120:release=600[bgmduck]` (bgm main, narration sidechain)
-  3. Mix: `[1:a][bgmduck]amix=inputs=2:weights=1.0 0.5:duration=first,alimiter=limit=0.95[aout]`; SFX layer delayed via `adelay=<ms>` at scene cut points from cut-points.py
-  4. Mux: `-map 0:v -map [aout] -c:v copy -c:a aac -b:a 160k -shortest`
+- ffmpeg mix recipe (final.mp4 has NO audio stream; audio inputs are narration/bgm/sfx) — **当前实现见 `pipeline/build-audio.sh`，2026-09-13 已按本机验证过的 `mix-final-v2.sh` 配方重写并回归**：
+  1. Prepare BGM: `ffmpeg -stream_loop -1 -i bgm.mp3 -t <vid_dur> -af "volume=<bgm_volume>,afade=t=out:st=<dur-2>:d=2" bgm-prepared.wav`
+  2. SFX bed: 每个切点（`cut-points.py`）插一条 whoosh（`volume=0.16` + `adelay=<ms>|<ms>`），有 `chime.mp3` 时结尾前 8s 再补一记（`volume=0.18`）；`amix=duration=longest:normalize=0,apad,atrim=duration=<vid_dur>` 预混成与整片等长的 `assets/sfx-bed.wav`。没有 SFX 素材时铺等长 `anullsrc`，保证主图输入数恒定。
+  3. Duck + mix（图示真实键名）：`[1:a]asplit=2[nar][sc];[nar]loudnorm=I=-16:TP=-1.5:LRA=7[norm];[2:a][sc]sidechaincompress=threshold=0.03:ratio=8:attack=100:release=600:makeup=1[bgmduck];[norm][bgmduck][3:a]amix=inputs=3:weights=1.0 0.5 0.35:normalize=0:duration=longest,alimiter=limit=0.95[aout]`
+  4. Mux: `-map 0:v -map [aout] -c:v copy -c:a aac -b:a 160k -ar 48000 -ac 2 -t <vid_dur>` —— **不要用 `-shortest`**：配音比画面短时它会按音频把画面尾部剪掉。
+  实测交付（2026-09-13 桩回归）：aac/48000/stereo，−16.8 LUFS，时长与 `run/final.mp4` 逐帧一致，视频流 md5 零重编码，切点 SFX 窗口 −24.9 dB（静默对照 −inf），BGM 旁链后 −42.0 LUFS vs 原始 −35.3 LUFS。
 
   Validated one-shot graph (Episode3, 2026-09-02 — pad + duck + mix + limit in one pass, video stream-copied):
   ```bash

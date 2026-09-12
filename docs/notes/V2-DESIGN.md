@@ -144,4 +144,17 @@ ffmpeg -i final.mp4 -i narration.mp3 -i bgm.mp3 -i sfx.mp3 -filter_complex "
 - 切点 SFX：2.40–2.55s 窗口 `-31.3 dB` vs 无 SFX 对照 `-43.1 dB` → **+11.8 dB**（whoosh 确实落在切点）
 - 画面零重编码：`run/final.mp4` 与成片的视频流 md5 一致
 - 时长对齐：`final.mp4` 4.033s = 成片 4.033s（配音 4.296s，不再截画面）
-- 混音后整体响度 −19.7 LUFS（normalize=0 前为 −26.6）；如需对齐平台 −14 LUFS 需另加 `loudnorm`，属发布规格决策，尚未加入
+
+### 第 4 处：P7 混音配方换成本机已验证的 v2 配方（2026-09-13）
+
+修完前三条后复查发现：本机真正的混音配方是 `mix-final-v2.sh`（Aug 31 18:48，比 `build-audio.sh` 的 14:12 更晚），而打包时把它当「legacy 退役脚本」处理、把更早且有 bug 的 `build-audio.sh` 提成了正式 P7 —— 这是打包环节的判断错误，也是「本机跑得通、用户那边跑不通」的一部分真正来源。已把 v2 配方并入 `pipeline/build-audio.sh`：
+
+| 项 | 旧 build-audio.sh | 现（= mix-final-v2.sh 配方） |
+|---|---|---|
+| narration 响度 | 原始电平 | `loudnorm=I=-16:TP=-1.5:LRA=7` |
+| 旁链压缩 | `ratio=6:attack=120` | `ratio=8:attack=100:makeup=1` |
+| SFX | 仅第一个切点，一条 whoosh，混在主图里 | 每个切点一条 whoosh + 可选结尾 chime，预混成等长 `sfx-bed.wav` 再作为一路输入 |
+| amix 权重 | `1.0 0.5 0.5` | `1.0 0.5 0.35` |
+| 输出 | 单声道 aac | `-ar 48000 -ac 2` 立体声 |
+
+回归数据（同一桩场景）：**−16.8 LUFS**（v2 目标 −16）、aac/48000/**stereo**、时长 5.033s = `run/final.mp4` 5.033s、视频流 md5 一致、切点窗口 −24.9 dB vs 静默 −inf、BGM 旁链后 −42.0 vs 原始 −35.3 LUFS（−6.7 dB）；**有/无 SFX 素材两种情况下整轨都是 −16.8 LUFS**（修复前差约 7 dB）。

@@ -69,7 +69,7 @@ If the user wants to discuss design first, produce a design doc and wait — do 
 2. TTS voice (narration + word timestamps)  — fix includes 句首咬字 instruction
 3. BGM audition as AUDIO ONLY: narration.mp3 + each candidate track -> audition-<id>.mp3 (seconds each, no video)
 4. user picks BGM  ← last decision point
-5. render scenes + concat + single mix -> final-with-voice.mp4 (head 0.4s silence pad)
+5. render scenes + concat + single mix -> final-with-voice.mp4 (aac 48k stereo, −16 LUFS; 开头留白用 `NARRATION_HEAD_PAD_MS`，默认 0)
 6. publish kit (read references/platform-publish-rules.md first)
 ```
 
