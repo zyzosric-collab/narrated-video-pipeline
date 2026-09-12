@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# 运行时产物
+status.html
+*.log
+logs/
+
+# 每集产物（不要提交成片与大文件）
+episodes/
+*/assets/narration.mp3
+*/assets/bgm/*.mp3
+*/run/
+*/frames/
+*.mp4
+*.wav
+
+# macOS
+.DS_Store
