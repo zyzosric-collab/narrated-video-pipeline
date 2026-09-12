@@ -159,6 +159,25 @@ python3 "$TTS_CLI" --text <文本> --speaker <音色ID> --speech-rate <整数> \
 - `docs/notes/` 与 `pipeline/legacy/` 是历史记录，不对应当前接口，请勿直接调用。
 - 音色与素材授权由使用者自行负责（素材来源 / 作者 / 许可证 / 路径 / 校验值的记录规范见 `references/audio-asset-routing.md`）。
 
+## 致谢与第三方组件
+
+本项目**不打包**任何第三方代码或素材：所有外部组件都以「运行时 `npx` 调用 / 独立 clone / 官方 API」的方式使用，未复制其源码入库。署名与条款如下：
+
+| 组件 | 用途 | 来源 | 许可证 | 引入方式 |
+|---|---|---|---|---|
+| **HyperFrames** | P5 渲染引擎（HTML → MP4） | [heygen-com/hyperframes](https://github.com/heygen-com/hyperframes)（npm 包 `hyperframes`） | Apache-2.0 | 运行时 `npx hyperframes` 调用，未复制其代码 |
+| **Auto-Motion** | 渲染工作区模板 + 随附的 HyperFrames 技能包（13 套画面预设所在） | [vibe-motion/auto-motion](https://github.com/vibe-motion/auto-motion)；README 里的克隆地址指向其 fork [zyzosric-collab/auto-motion](https://github.com/zyzosric-collab/auto-motion) | **上游仓库未声明许可证**（仓库内无 LICENSE 文件） | 独立 clone 到 `~/auto-motion`；本仓库不含其任何文件 |
+| **FFmpeg / ffprobe** | 混音、抽帧、时长与响度校验 | [ffmpeg.org](https://ffmpeg.org) | LGPL-2.1+ / GPL（Homebrew 构建为 `--enable-gpl`，含 x264/x265） | 独立进程命令行调用，未链接、未分发 |
+| **jq** | JSON 处理 | [jqlang.github.io/jq](https://jqlang.github.io/jq) | MIT | 系统安装 |
+| **Node.js / npm** | 运行 HyperFrames 与 `npm run check` | [nodejs.org](https://nodejs.org) | MIT | 系统安装 |
+| **Python + PyYAML** | 执行器脚本 | [python.org](https://python.org) / [pyyaml.org](https://pyyaml.org) | PSF-2.0 / MIT | 系统安装（`pipeline/.venv`） |
+| **Codex CLI** | P4 拆镜规划 | [openai/codex](https://github.com/openai/codex) | Apache-2.0 | 用户自备 CLI |
+| **Claude Code** | P5 单镜头画面实现 | Anthropic | 专有（Anthropic 商业条款） | 用户自备 CLI |
+| **豆包语音合成 2.0（`seed-tts-2.0`）** | P2 配音与词级时间戳 | 火山引擎 | 商业服务条款 | 仅调用其 HTTP API；`tools/volcengine-doubao-tts/` 客户端是本仓库自有代码（纯标准库，未使用其 SDK） |
+| **Google Fonts**（Noto Sans SC / Space Grotesk 等） | 画面字体 | [fonts.google.com](https://fonts.google.com) | SIL OFL 1.1 | 渲染时按需加载，字体文件不入库 |
+
+本仓库自身的代码与文档（`SKILL.md`、`references/`、`pipeline/`）为原创，按 MIT 授权；上表各组件只受其自身条款约束。二次分发本流水线的**产物**时请按上表处理——特别提示：**Auto-Motion 上游未声明许可证**，其可再分发范围以上游仓库说明和当地法律为准，商业用途建议先向上游确认。
+
 ## License
 
 MIT，见 [LICENSE](LICENSE)。

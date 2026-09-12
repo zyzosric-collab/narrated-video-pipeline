@@ -93,4 +93,23 @@ python3 "$TTS_CLI" --text <text> --speaker <voice> --speech-rate <int> \
 
 [`docs/install.md`](docs/install.md) · [`docs/architecture.md`](docs/architecture.md) · [`docs/usage.md`](docs/usage.md) · [`docs/troubleshooting.md`](docs/troubleshooting.md)
 
+## Credits & third-party components
+
+Nothing third-party is **bundled here**. Every external component is used via runtime `npx`, a separate clone, or an official API contract — no upstream source is copied into this repo.
+
+| Component | Role | Source | License | How it is used |
+|---|---|---|---|---|
+| **HyperFrames** | P5 render engine (HTML → MP4) | [heygen-com/hyperframes](https://github.com/heygen-com/hyperframes) (npm `hyperframes`) | Apache-2.0 | invoked as `npx hyperframes`; no code copied |
+| **Auto-Motion** | Render-workspace template + bundled HyperFrames skill pack (where the 13 visual presets live) | [vibe-motion/auto-motion](https://github.com/vibe-motion/auto-motion); the clone URL in the docs points at its fork [zyzosric-collab/auto-motion](https://github.com/zyzosric-collab/auto-motion) | **upstream declares no license** (no LICENSE file) | cloned separately to `~/auto-motion`; no files from it live here |
+| **FFmpeg / ffprobe** | mixing, frame extraction, duration & loudness checks | [ffmpeg.org](https://ffmpeg.org) | LGPL-2.1+ / GPL (Homebrew build is `--enable-gpl`, x264/x265) | separate processes, not linked or redistributed |
+| **jq** | JSON processing | [jqlang.github.io/jq](https://jqlang.github.io/jq) | MIT | installed by the user |
+| **Node.js / npm** | running HyperFrames and `npm run check` | [nodejs.org](https://nodejs.org) | MIT | installed by the user |
+| **Python + PyYAML** | executor scripts | [python.org](https://python.org) / [pyyaml.org](https://pyyaml.org) | PSF-2.0 / MIT | installed by the user (`pipeline/.venv`) |
+| **Codex CLI** | P4 shot planning | [openai/codex](https://github.com/openai/codex) | Apache-2.0 | user-supplied CLI |
+| **Claude Code** | P5 per-shot implementation | Anthropic | proprietary (Anthropic terms) | user-supplied CLI |
+| **Doubao speech synthesis 2.0 (`seed-tts-2.0`)** | P2 narration + word timestamps | Volcengine | commercial service terms | HTTP API only; the client in `tools/volcengine-doubao-tts/` is original code (stdlib only, no SDK) |
+| **Google Fonts** (Noto Sans SC / Space Grotesk, etc.) | on-screen type | [fonts.google.com](https://fonts.google.com) | SIL OFL 1.1 | loaded at render time; no font binaries in the repo |
+
+This repo's own code and docs (`SKILL.md`, `references/`, `pipeline/`) are original and MIT-licensed; the components above are governed solely by their own terms. If you redistribute **videos produced by** this pipeline, apply the table above — note in particular that **upstream Auto-Motion declares no license**, so its redistributable scope depends on the upstream repo and your local law; ask upstream before commercial use.
+
 No API credentials, model weights or third-party assets are bundled — the Doubao TTS client under `tools/` is stdlib-only source, the speech service is Volcengine's, and Codex / Claude Code are external dependencies under their own terms. Keep `.env.local` on your machine (it is gitignored). MIT licensed.
